@@ -1,0 +1,129 @@
+1 - Enable windows SubSystem for Linux
+
+Cmd: dism.exe /online /enable-feature /featurename:Microsoft-Windows-Subsystem-Linux /all /norestart
+
+2 - Enable Virtual Machine feature
+
+Cmd: dism.exe /online /enable-feature /featurename:VirtualMachinePlatform /all /norestar
+
+3 - Download linux kernel update package
+
+Link: https://wslstorestorage.blob.core.windows.net/wslblob/wsl_update_x64.msi
+
+4 - Set WSL-2 as default version on PowerShell (as admin)
+
+Cmd: Set WSL-2 as default version
+
+5 - Install Ubuntu app from windows store (20.04)
+
+6 - Open Ubuntu terminal by powershell new tab
+
+7 - cmd: sudo apt update && sudo apt upgrade on Ubuntu
+
+8 - Download docker desktop on Windows
+
+9 - Enable Docker for ubuntu
+
+	Go to Settings
+	Resources
+	WSL integration
+	Enable Ubuntu-20.04
+	Then hit Apply & restart (This may take few minutes)
+
+10 - sudo su on ubuntu
+
+11 - Download curl (if not exist) on ubunutu
+
+	cmd: curl --version
+	cmd: sudo apt-get install curl (if not exist)
+
+12 - Download go (if not exist) on ubunutu (link: https://go.dev/doc/install#install)
+
+	cmd: go version
+	if not exist 
+	cmd: cd usr/local 
+	cmd: wget https://go.dev/dl/go1.23.0.linux-arm64.tar.gz
+	cmd: tar xvf go1.23.0.linux-amd64.tar.gz
+	cmd: nano ~/.profile and (add end of the file 'export PATH=$PATH:/usr/local/go/bin')
+	cmd: source $HOME/.profile
+
+13 - Download git (if not exist) on ubunutu
+	
+	cmd: git --version
+
+14 - Download fabric on ubuntu
+	
+	cmd: curl -sSL https://bit.ly/2ysbOFE | bash -s
+
+Fabric setup successfully. (link : https://www.codementor.io/@arvindmaurya/hyperledger-fabric-on-windows-1hjjorw68p)
+
+15 - Add your saip-chaincode folder to fabric-samples directory
+
+16 - Start the network
+	cmd: cd fabric-samples/test-network
+	cmd: ./network.sh up createChannel (network runs and 'mychannel' named channel created)
+	
+     if 'jq' errors
+	cmd: sudo apt-get update && sudo apt-get install jq	
+
+17 - Package the smart contract
+	cmd: cd ../saip-chaincode
+	cmd: go mod vendor (download dependent libraries)
+	cmd: cd ../../test-network
+	cmd: export PATH=${PWD}/../bin:$PATH
+	cmd: export FABRIC_CFG_PATH=$PWD/../config/
+	cmd: peer version
+	cmd: peer lifecycle chaincode package saip.tar.gz --path ../saip-chaincode/ --lang golang --label saip_1.0
+
+18 - Install the chaincode package
+
+	cmd: export CORE_PEER_TLS_ENABLED=true
+	cmd: export CORE_PEER_LOCALMSPID="Org1MSP"
+	cmd: export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+	cmd:export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+	cmd: export CORE_PEER_ADDRESS=localhost:7051
+	cmd: peer lifecycle chaincode install saip.tar.gz
+	cmd: export CORE_PEER_LOCALMSPID="Org2MSP"
+	cmd: export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt
+	cmd: export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org2.example.com/users/Admin@org2.example.com/msp
+	cmd: export CORE_PEER_ADDRESS=localhost:9051
+	cmd: peer lifecycle chaincode install saip.tar.gz
+
+19 - Approve a chaincode definition
+	cmd: peer lifecycle chaincode queryinstalled (copy packageId from response)
+	cmd: export CC_PACKAGE_ID=paste packageId
+	cmd: peer lifecycle chaincode approveformyorg -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --channelID mychannel --name saip --version 1.0 --package-id $CC_PACKAGE_ID --sequence 1 --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
+	cmd: export CORE_PEER_LOCALMSPID="Org1MSP"
+	cmd: export CORE_PEER_MSPCONFIGPATH=${PWD}/organizations/peerOrganizations/org1.example.com/users/Admin@org1.example.com/msp
+	cmd: export CORE_PEER_TLS_ROOTCERT_FILE=${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt
+	cmd: export CORE_PEER_ADDRESS=localhost:7051
+	cmd: peer lifecycle chaincode approveformyorg -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --channelID mychannel --name saip --version 1.0 --package-id $CC_PACKAGE_ID --sequence 1 --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
+
+20 - Committing the chaincode definition to the channel
+	cmd: peer lifecycle chaincode checkcommitreadiness --channelID mychannel --name saip --version 1.0 --sequence 1 --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" --output json
+
+	cmd: peer lifecycle chaincode commit -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --channelID mychannel --name saip --version 1.0 --sequence 1 --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" --peerAddresses localhost:7051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt" --peerAddresses localhost:9051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt"
+
+	cmd: peer lifecycle chaincode querycommitted --channelID mychannel --name saip --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem"
+
+21 - Invoking the chaincode
+
+	cmd: peer chaincode invoke -o localhost:7050 --ordererTLSHostnameOverride orderer.example.com --tls --cafile "${PWD}/organizations/ordererOrganizations/example.com/orderers/orderer.example.com/msp/tlscacerts/tlsca.example.com-cert.pem" -C mychannel -n saip --peerAddresses localhost:7051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org1.example.com/peers/peer0.org1.example.com/tls/ca.crt" --peerAddresses localhost:9051 --tlsRootCertFiles "${PWD}/organizations/peerOrganizations/org2.example.com/peers/peer0.org2.example.com/tls/ca.crt" -c '{"function":"InitLedger","Args":[]}'
+
+Chaincode deploying and invoking successfully.
+
+22 - Running rest api for chaincode
+
+	cmd: cd ../saip-rest-api
+	cmd: go mod download (install dependent libraries)
+	cmd: go run main.go
+
+Rest api successfully runs.
+
+Link: (https://hyperledger-fabric.readthedocs.io/en/latest/write_first_app.html)
+ 
+ 
+
+
+
+
